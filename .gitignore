@@ -1,0 +1,11 @@
+# Secrets: API key and Gmail app password
+.env
+
+# Local signal history
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

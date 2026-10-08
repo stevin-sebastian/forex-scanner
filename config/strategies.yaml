@@ -1,0 +1,91 @@
+# ============================================================
+# FOREX SCANNER — STRATEGY CONFIGURATION
+# ============================================================
+# HOW TO ADD A NEW STRATEGY:
+#   1. Copy the structure of an existing strategy block
+#   2. Give it a unique key (e.g. my_strategy)
+#   3. Set enabled: true
+#   4. Define environment_filter, context_phase, entry_phase
+#   5. Restart the scanner — no code changes needed
+#
+# HOW TO MODIFY THRESHOLDS:
+#   - atr_contraction.threshold: lower = stricter contraction required
+#   - retest_ema_zone.tolerance_pips: how close price must be to EMA
+#   - cross_above_emas.min_body_ratio: minimum candle body as fraction of range
+#
+# CONDITION TYPES AVAILABLE:
+#   - price_below_all_emas: price closes below specified EMAs for min_bars
+#   - atr_contraction: ATR shrinks by threshold fraction over lookback bars
+#   - cross_above_emas: bullish candle closes above specified EMAs with min body
+#   - retest_ema_zone: price returns to touch EMA zone after moving away
+# ============================================================
+
+watchlist:
+  - EUR/USD
+  - GBP/USD
+  - USD/JPY
+
+scan_interval_minutes: 15
+
+session_filter:
+  enabled: false
+  sessions:
+    london:
+      start_utc: "08:00"
+      end_utc: "12:00"
+    new_york:
+      start_utc: "13:00"
+      end_utc: "17:00"
+
+strategies:
+  mentfx_basic:
+    name: "MentFX 4H + 30min Setup"
+    enabled: true
+    environment_filter:
+      suitable_for_long: true
+    context_phase:
+      timeframe: "4H"
+      conditions:
+        major_flush:
+          description: "Price trends below EMA10, EMA20, EMA50 for at least 5 bars"
+          type: price_below_all_emas
+          emas: [10, 20, 50]
+          min_bars: 5
+        sideways_range:
+          description: "Low-volatility consolidation after flush — ATR contraction"
+          type: atr_contraction
+          lookback: 8
+          threshold: 0.6
+        momentum_push:
+          description: "Strong bullish candle crosses above EMA10 and EMA20"
+          type: cross_above_emas
+          emas: [10, 20]
+          min_body_ratio: 0.6
+        ema_retest:
+          description: "Price pulls back to touch EMA10 or EMA20, both EMAs rising"
+          type: retest_ema_zone
+          emas: [10, 20]
+          emas_must_be_rising: true
+          tolerance_pips: 10
+    entry_phase:
+      timeframe: "30min"
+      conditions:
+        entry_flush:
+          description: "Same flush pattern on 30min — price below EMA10 and EMA20"
+          type: price_below_all_emas
+          emas: [10, 20]
+          min_bars: 3
+        entry_push:
+          description: "Momentum push on 30min back above EMA10 and EMA20"
+          type: cross_above_emas
+          emas: [10, 20]
+          min_body_ratio: 0.5
+        entry_retest:
+          description: "30min price returns to EMA10/EMA20 zone, EMAs rising"
+          type: retest_ema_zone
+          emas: [10, 20]
+          emas_must_be_rising: true
+          tolerance_pips: 5
+    signal:
+      buy_stop_price: peak_of_entry_push
+      description: "Place buy stop above the 30min push candle high"

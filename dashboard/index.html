@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forex Scanner</title>
+  <style>
+    :root {
+      --bg: #0c0c0c;
+      --surface: #141414;
+      --surface2: #1c1c1c;
+      --border: #252525;
+      --text: #e0e0e0;
+      --muted: #555;
+      --muted2: #777;
+      --green: #22c55e;
+      --green-dim: #14532d;
+      --red: #ef4444;
+      --red-dim: #450a0a;
+      --blue: #3b82f6;
+      --blue-dim: #1e3a5f;
+      --yellow: #eab308;
+      --yellow-dim: #422006;
+      --font: 'Courier New', Courier, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; padding-bottom: 36px; }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px; border-bottom: 1px solid var(--border);
+      background: var(--surface); position: sticky; top: 0; z-index: 10;
+    }
+    .logo { font-size: 15px; letter-spacing: 3px; color: var(--green); font-weight: bold; }
+    .header-meta { display: flex; align-items: center; gap: 20px; }
+    .meta-item { font-size: 11px; color: var(--muted2); }
+    .meta-item span { color: var(--text); }
+    .btn {
+      background: transparent; color: var(--green); border: 1px solid var(--green);
+      padding: 5px 14px; cursor: pointer; font-family: var(--font); font-size: 11px;
+      letter-spacing: 1px; transition: background 0.15s;
+    }
+    .btn:hover { background: var(--green-dim); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 7px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* Layout */
+    .main { padding: 20px 24px; }
+    .section-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+
+    /* Pair grid */
+    .pair-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-bottom: 32px; }
+
+    /* Pair card */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; transition: border-color 0.2s; }
+    .card.entry-ready { border-color: var(--green); }
+    .card.watching { border-color: var(--blue); }
+    .card.filtered { opacity: 0.55; }
+
+    .card-header { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+    .pair-name { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+    .card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+
+    /* Badges */
+    .badge { font-size: 10px; padding: 2px 7px; letter-spacing: 0.5px; font-weight: bold; border-radius: 2px; white-space: nowrap; }
+    .badge-green  { background: var(--green-dim);  color: var(--green); }
+    .badge-red    { background: var(--red-dim);    color: var(--red); }
+    .badge-blue   { background: var(--blue-dim);   color: var(--blue); }
+    .badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
+    .badge-grey   { background: #222; color: var(--muted2); }
+    .badge-entry  { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+
+    /* Environment row */
+    .env-row { padding: 10px 16px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--border); background: #111; flex-wrap: wrap; }
+    .env-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted2); }
+    .env-item .val { color: var(--text); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green  { background: var(--green); }
+    .dot-red    { background: var(--red); }
+    .dot-yellow { background: var(--yellow); }
+    .dot-grey   { background: #444; }
+
+    /* Progress bar */
+    .progress-wrap { margin: 10px 16px 0; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .progress-track { background: #1e1e1e; height: 3px; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+    .progress-fill.green  { background: var(--green); }
+    .progress-fill.blue   { background: var(--blue); }
+    .progress-fill.yellow { background: var(--yellow); }
+    .progress-fill.grey   { background: #333; }
+    .progress-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: var(--muted); }
+
+    /* Pipeline */
+    .pipeline { padding: 12px 16px; }
+    .phase-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+    .phase-passed { color: var(--green); font-size: 10px; }
+    .phase-block { margin-bottom: 10px; }
+    .cond-list { display: flex; flex-direction: column; gap: 3px; }
+    .cond-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+    .cond-icon { font-size: 12px; width: 14px; text-align: center; flex-shrink: 0; }
+    .cond-pass .cond-icon { color: var(--green); }
+    .cond-fail .cond-icon { color: #333; }
+    .cond-label { font-size: 11px; }
+    .cond-pass .cond-label { color: var(--text); }
+    .cond-fail .cond-label { color: var(--muted); }
+    .phase-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+    /* Buy stop */
+    .buy-stop-block { margin: 10px 16px 14px; padding: 10px 12px; background: #0a1f12; border: 1px solid var(--green); border-radius: 2px; }
+    .buy-stop-label { font-size: 10px; color: var(--muted2); letter-spacing: 1px; margin-bottom: 3px; }
+    .buy-stop-price { font-size: 26px; color: var(--green); font-weight: bold; letter-spacing: 1px; }
+
+    /* Filtered note */
+    .filtered-note { padding: 10px 16px 12px; font-size: 11px; color: var(--muted2); }
+
+    /* Card footer */
+    .card-footer { padding: 6px 16px 10px; font-size: 10px; color: var(--muted); }
+
+    /* History */
+    .history { margin-top: 8px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 3px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; background: var(--surface); }
+    td { padding: 8px 14px; border-bottom: 1px solid #1a1a1a; font-size: 12px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .no-data { padding: 24px; text-align: center; color: var(--muted); font-size: 12px; }
+
+    /* Status bar */
+    .statusbar { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 24px; border-top: 1px solid var(--border); background: var(--surface); font-size: 10px; color: var(--muted); display: flex; gap: 24px; align-items: center; }
+    .s-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .s-on { background: var(--green); }
+    .s-off { background: var(--red); }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo"><span class="pulse"></span>FOREX SCANNER</div>
+  <div class="header-meta">
+    <div class="meta-item">Last scan: <span id="last-scan">—</span></div>
+    <div class="meta-item">Next: <span id="next-scan">—</span></div>
+    <button class="btn" id="scan-btn" onclick="triggerScan()">SCAN NOW</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="section-label">Live Pair Monitor</div>
+  <div class="pair-grid" id="pair-grid">
+    <div style="color:#555;font-size:12px;">Connecting to scanner…</div>
+  </div>
+
+  <div class="section-label history">Signal History — Entry Ready</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Pair</th><th>Strategy</th><th>Buy Stop</th><th>Stage</th><th>Fired At</th><th>Alerted</th></tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="6" class="no-data">No entry-ready signals yet</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="statusbar">
+  <span id="api-dot"><span class="s-dot s-off"></span>API: —</span>
+  <span id="server-time">UTC: —</span>
+  <span>Auto-refresh: 30s</span>
+</div>
+
+<script>
+const API = 'http://localhost:5001';
+
+loadLive();
+loadStatus();
+loadHistory();
+setInterval(loadLive, 30000);
+setInterval(loadStatus, 20000);
+setInterval(loadHistory, 60000);
+
+async function loadLive() {
+  try {
+    const res = await fetch(API + '/api/live');
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    renderGrid(data);
+  } catch {
+    document.getElementById('pair-grid').innerHTML =
+      '<div style="color:#555;font-size:12px;">Cannot reach scanner at ' + API + ' — is main.py running?</div>';
+  }
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(API + '/api/signals');
+    const signals = await res.json();
+    renderHistory(signals.filter(function(s){ return s.stage === 'entry_ready'; }));
+  } catch {}
+}
+
+async function loadStatus() {
+  try {
+    const res = await fetch(API + '/api/status');
+    const s = await res.json();
+    var dot = s.api_connected ? '<span class="s-dot s-on"></span>' : '<span class="s-dot s-off"></span>';
+    document.getElementById('api-dot').innerHTML = dot + 'API: ' + (s.api_connected ? 'Connected' : 'Offline');
+    if (s.last_scan) document.getElementById('last-scan').textContent = fmtTime(s.last_scan);
+    if (s.next_scan) document.getElementById('next-scan').textContent = fmtTime(s.next_scan);
+    if (s.server_time_utc) document.getElementById('server-time').textContent = 'UTC: ' + fmtTime(s.server_time_utc);
+  } catch {}
+}
+
+async function triggerScan() {
+  var btn = document.getElementById('scan-btn');
+  btn.disabled = true; btn.textContent = 'SCANNING…';
+  try {
+    await fetch(API + '/api/scan');
+    await loadLive();
+    await loadHistory();
+    await loadStatus();
+  } catch {}
+  btn.disabled = false; btn.textContent = 'SCAN NOW';
+}
+
+/* ── Grid ── */
+function renderGrid(pairs) {
+  var grid = document.getElementById('pair-grid');
+  if (!pairs.length) {
+    grid.innerHTML = '<div style="color:#555;font-size:12px;">No data — click SCAN NOW</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  pairs.forEach(function(p) { grid.appendChild(buildCard(p)); });
+}
+
+function buildCard(p) {
+  var card = document.createElement('div');
+  var env = p.environment || {};
+  var stage = p.stage || 'not_applicable';
+  var filtered = p.filtered || false;
+  var sr = (p.strategy_results || [])[0] || null;
+
+  var cls = 'card';
+  if (stage === 'entry_ready') cls += ' entry-ready';
+  else if (stage === 'watching') cls += ' watching';
+  else if (filtered) cls += ' filtered';
+  card.className = cls;
+
+  card.innerHTML =
+    cardHeaderHtml(p.pair, env.trend_state, stage, filtered) +
+    envRowHtml(env) +
+    progressBarHtml(sr, filtered) +
+    pipelineHtml(sr, filtered) +
+    buyStopHtml(stage, sr) +
+    '<div class="card-footer">Scanned: ' + (p.scanned_at ? fmtTime(p.scanned_at) : '—') + '</div>';
+
+  return card;
+}
+
+function cardHeaderHtml(pair, trend, stage, filtered) {
+  var trendBadge = '';
+  if (trend === 'trending_up')   trendBadge = '<span class="badge badge-green">TREND UP</span>';
+  else if (trend === 'trending_down') trendBadge = '<span class="badge badge-red">TREND DOWN</span>';
+  else trendBadge = '<span class="badge badge-grey">RANGING</span>';
+
+  var stageBadge = '';
+  if (filtered)                    stageBadge = '<span class="badge badge-grey">FILTERED</span>';
+  else if (stage === 'entry_ready') stageBadge = '<span class="badge badge-entry">ENTRY READY</span>';
+  else if (stage === 'watching')    stageBadge = '<span class="badge badge-blue">WATCHING</span>';
+  else                              stageBadge = '<span class="badge badge-grey">MONITORING</span>';
+
+  return '<div class="card-header"><div class="pair-name">' + pair + '</div><div class="card-badges">' + trendBadge + stageBadge + '</div></div>';
+}
+
+function envRowHtml(env) {
+  var bull = env.ma_stack_bullish, bear = env.ma_stack_bearish;
+  var dc = bull ? 'dot-green' : bear ? 'dot-red' : 'dot-yellow';
+  var dc50 = bull ? 'dot-green' : bear ? 'dot-red' : 'dot-grey';
+  var stackStr = bull ? '<span style="color:#22c55e">Bullish</span>' : bear ? '<span style="color:#ef4444">Bearish</span>' : '<span style="color:#eab308">Mixed</span>';
+  var risingStr = env.emas_rising ? '<span style="color:#22c55e">rising</span>' : '<span style="color:#555">flat</span>';
+  var detail = env.detail || {};
+  var e10 = detail.ema10 ? detail.ema10.toFixed(4) : '—';
+  var e20 = detail.ema20 ? detail.ema20.toFixed(4) : '—';
+  return '<div class="env-row">' +
+    '<div class="env-item"><span class="dot ' + dc + '"></span><span class="dot ' + dc + '"></span><span class="dot ' + dc50 + '"></span>&nbsp;' + stackStr + '</div>' +
+    '<div class="env-item">EMAs&nbsp;' + risingStr + '</div>' +
+    '<div class="env-item">E10&nbsp;<span class="val">' + e10 + '</span></div>' +
+    '<div class="env-item">E20&nbsp;<span class="val">' + e20 + '</span></div>' +
+    '</div>';
+}
+
+function progressBarHtml(sr, filtered) {
+  var pct = 0, color = 'grey', label = 'Waiting for environment';
+  if (filtered) {
+    pct = 5; color = 'grey'; label = 'Environment not suitable — monitoring';
+  } else if (sr) {
+    var ctxVals = Object.values(sr.context_conditions_met || {});
+    var entVals = Object.values(sr.entry_conditions_met || {});
+    var ctxPassed = ctxVals.filter(Boolean).length;
+    var entPassed = entVals.filter(Boolean).length;
+    var total = ctxVals.length + entVals.length;
+    pct = total > 0 ? Math.round(((ctxPassed + entPassed) / total) * 100) : 10;
+    if (sr.stage === 'entry_ready') { color = 'green'; label = 'Entry ready'; }
+    else if (sr.context_passed)    { color = 'blue';   label = '4H done — Entry: ' + entPassed + '/' + entVals.length; }
+    else                           { color = 'yellow'; label = '4H context: ' + ctxPassed + '/' + ctxVals.length + ' conditions'; }
+  } else {
+    pct = 10; color = 'yellow'; label = 'Environment OK — evaluating';
+  }
+  return '<div class="progress-wrap"><div class="progress-track"><div class="progress-fill ' + color + '" style="width:' + pct + '%"></div></div><div class="progress-labels"><span>' + label + '</span><span>' + pct + '%</span></div></div>';
+}
+
+function pipelineHtml(sr, filtered) {
+  if (filtered) {
+    return '<div class="filtered-note">Pair is in a downtrend or ranging — strategy requires an uptrending environment. Monitoring for reversal.</div>';
+  }
+  if (!sr) {
+    return '<div class="filtered-note">Environment suitable — awaiting condition data.</div>';
+  }
+  var ctx = sr.context_conditions_met || {};
+  var ent = sr.entry_conditions_met || {};
+  var ctxPassed = sr.context_passed;
+
+  var ctxRows = Object.entries(ctx).map(function(e){ return condRow(e[0], e[1], false); }).join('');
+  var entRows = Object.entries(ent).map(function(e){ return condRow(e[0], e[1], false); }).join('');
+  if (!entRows && ctxPassed) entRows = '<div style="color:#444;font-size:11px;padding:3px 0;">Evaluating…</div>';
+  if (!entRows && !ctxPassed) entRows = '<div style="color:#2a2a2a;font-size:11px;padding:3px 0;">Locked — 4H must pass first</div>';
+
+  var ctxBadge = ctxPassed ? '<span class="phase-passed">PASSED</span>' : '';
+  var entBadge = sr.entry_passed ? '<span class="phase-passed">PASSED</span>' : '';
+
+  return '<div class="pipeline">' +
+    '<div class="phase-block"><div class="phase-label"><span>4H Context Phase</span>' + ctxBadge + '</div><div class="cond-list">' + ctxRows + '</div></div>' +
+    '<div class="phase-divider"></div>' +
+    '<div class="phase-block"><div class="phase-label"><span>30min Entry Phase</span>' + entBadge + '</div><div class="cond-list">' + entRows + '</div></div>' +
+    '</div>';
+}
+
+function condRow(key, passed, locked) {
+  var label = key.replace(/_/g, ' ');
+  if (locked) return '<div class="cond-row cond-fail"><span class="cond-icon" style="color:#2a2a2a;">○</span><span class="cond-label" style="color:#2a2a2a;">' + label + '</span></div>';
+  var cls = passed ? 'cond-pass' : 'cond-fail';
+  var icon = passed ? '✓' : '○';
+  return '<div class="cond-row ' + cls + '"><span class="cond-icon">' + icon + '</span><span class="cond-label">' + label + '</span></div>';
+}
+
+function buyStopHtml(stage, sr) {
+  if (stage !== 'entry_ready' || !sr || !sr.buy_stop_price) return '';
+  return '<div class="buy-stop-block"><div class="buy-stop-label">BUY STOP PRICE</div><div class="buy-stop-price">' + Number(sr.buy_stop_price).toFixed(5) + '</div></div>';
+}
+
+function renderHistory(signals) {
+  var tbody = document.getElementById('history-body');
+  if (!signals.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">No entry-ready signals yet</td></tr>'; return; }
+  tbody.innerHTML = signals.map(function(s) {
+    var price = s.buy_stop_price ? Number(s.buy_stop_price).toFixed(5) : '—';
+    var alerted = s.alerted ? '<span style="color:#22c55e">sent</span>' : '<span style="color:#555">—</span>';
+    return '<tr><td><strong>' + s.pair + '</strong></td><td style="color:#666">' + (s.strategy||'—') + '</td><td style="color:#22c55e;font-weight:bold;">' + price + '</td><td><span class="badge badge-entry">ENTRY READY</span></td><td style="color:#666;font-size:11px;">' + (s.fired_at ? fmtTime(s.fired_at) : '—') + '</td><td>' + alerted + '</td></tr>';
+  }).join('');
+}
+
+function fmtTime(iso) {
+  try { return new Date(iso).toLocaleTimeString(); } catch(e) { return iso; }
+}
+</script>
+</body>
+</html>
